@@ -2,8 +2,8 @@ import numpy as np
 import random
 import sys
 
-from services import create_payoff_matrix, get_input , generate_random_places
-from models import InputModel, WorldModel, PayoffModel
+from src.game.services import create_payoff_matrix, get_input , generate_random_places
+from src.game.models import InputModel, WorldModel, PayoffModel
 
 
 if __name__ == "__main__":

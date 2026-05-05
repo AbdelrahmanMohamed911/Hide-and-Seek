@@ -1,6 +1,6 @@
 import random
 import numpy as np
-from models import InputModel, WorldModel, PayoffModel
+from src.game.models import InputModel, WorldModel, PayoffModel
 
 PLACE_TYPES = ['neutral', 'easy_for_seeker', 'hard_for_seeker']
 PAYOFF_RULES = {
