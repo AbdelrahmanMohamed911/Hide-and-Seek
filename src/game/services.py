@@ -55,3 +55,9 @@ def create_payoff_matrix(world_model: WorldModel) -> PayoffModel:
                         matrix[hiders_position][seeker_position] = missed_payoff
                     
     return PayoffModel(matrix)
+ 
+def computer_move(probabilities):
+    return np.random.choice(len(probabilities), p=probabilities)
+
+def random_move(n):
+    return random.randint(0, n-1)
