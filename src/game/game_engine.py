@@ -35,10 +35,10 @@ class GameEngine:
         hider_payoff = self.payoff_model.matrix[hider_position][seeker_position]
         if hider_payoff > 0:
             hider_score = hider_payoff
-            seeker_score = 0
+            seeker_score = -1 * hider_payoff
         else:
-            hider_score = 0
-            seeker_score = -hider_payoff
+            hider_score = hider_payoff
+            seeker_score = -1 * hider_payoff
 
         winner = 'hider' if hider_score > seeker_score else 'seeker'
 
