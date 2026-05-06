@@ -31,13 +31,14 @@ def solve_seeker_minimax(payoff_model: PayoffModel, method='highs'):
     if res.success:
         return res.x[:-1], res.fun
     return None, None
-def main():
-    # sheet example
-    # expected output: Seeker's Optimal Strategy (Probabilities): [0.5 0.5], Value of the Game (W): 25.0
-    payoff_matrix = np.array([[10,40], [30,20]])
-    payoff_model = PayoffModel(matrix=payoff_matrix)
-    seeker_probs, game_value = solve_seeker_minimax(payoff_model)
-    print("Seeker's Optimal Strategy (Probabilities):", seeker_probs)
-    print("Value of the Game (W):", game_value)
-if __name__ == "__main__":
-    main()
+
+# def main():
+#     # sheet example
+#     # expected output: Seeker's Optimal Strategy (Probabilities): [0.5 0.5], Value of the Game (W): 25.0
+#     payoff_matrix = np.array([[10,40], [30,20]])
+#     payoff_model = PayoffModel(matrix=payoff_matrix)
+#     seeker_probs, game_value = solve_seeker_minimax(payoff_model)
+#     print("Seeker's Optimal Strategy (Probabilities):", seeker_probs)
+#     print("Value of the Game (W):", game_value)
+# if __name__ == "__main__":
+#     main()

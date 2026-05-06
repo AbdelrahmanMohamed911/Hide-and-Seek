@@ -1,11 +1,10 @@
-from random import random
+import random
 from .models import InputModel, WorldModel, PayoffModel
 from .services import computer_move, random_move
+from src.solver.computer_solver import solve
 
 class GameEngine:
-    def __init__(self, input_model, world_model, payoff_model, human_role, computer_probabilities):
-        self.input_model = input_model
-        self.world_model = world_model
+    def __init__(self, payoff_model, human_role=None, computer_probabilities=None):
         self.payoff_model = payoff_model
         self.human_role = human_role
         self.computer_probabilities = computer_probabilities
@@ -31,8 +30,11 @@ class GameEngine:
             hider_position = computer_position
             seeker_position = human_position
 
+        print(self.human_role)
+
         # Calculate scores based on the payoff matrix
         hider_payoff = self.payoff_model.matrix[hider_position][seeker_position]
+        print(f"Hider payoff: {hider_payoff}")
         if hider_payoff > 0:
             hider_score = hider_payoff
             seeker_score = -1 * hider_payoff
@@ -59,12 +61,26 @@ class GameEngine:
             else:
                 self.computer_rounds_won += 1
 
+        print(f"Round {self.round_count}: Human ({self.human_role}) score: {hider_score if self.human_role == 'hider' else seeker_score}, Computer score: {seeker_score if self.human_role == 'hider' else hider_score}, Winner: {winner}")
+
     def play_simulation(self, rounds = 100):
-        self.human_role = random.choice(['hider', 'seeker'])
+        print(f"Human role: {self.human_role}")
         n = len(self.payoff_model.matrix)
+
+        computer_probabilities_seeker, _ = solve(self.payoff_model, "hider")
+        computer_probabilities_hider, _ = solve(self.payoff_model, "seeker")
+        
         for _ in range(rounds):
+            self.human_role = random.choice(['hider', 'seeker'])
+            if self.human_role == "hider":
+                self.computer_probabilities = computer_probabilities_seeker
+            else:
+                self.computer_probabilities = computer_probabilities_hider
+
             human_position = random_move(n)
             computer_position = computer_move(self.computer_probabilities)
+            print(f"Computer chose position: {computer_position}")
+            print(f"Human chose position: {human_position}")
             self.play_round(human_position, computer_position)
 
     def reset_scoreboard(self):

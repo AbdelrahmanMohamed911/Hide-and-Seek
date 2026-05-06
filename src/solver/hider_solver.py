@@ -31,13 +31,13 @@ def solve_hider_maximin(payoff_model: PayoffModel, method='highs'):
     if res.success:
         return res.x[:-1], -res.fun 
     return None, None
-def main():
-    # sheet example
-    # expected output: Hider's Optimal Strategy (Probabilities): [0.25 0.75], Value of the Game (z): 25.0
-    payoff_matrix = np.array([[10,40], [30,20]])
-    payoff_model = PayoffModel(matrix=payoff_matrix)
-    hider_probs, game_value = solve_hider_maximin(payoff_model)
-    print("Hider's Optimal Strategy (Probabilities):", hider_probs)
-    print("Value of the Game (z):", game_value)
-if __name__ == "__main__":
-    main()
+# def main():
+#     # sheet example
+#     # expected output: Hider's Optimal Strategy (Probabilities): [0.25 0.75], Value of the Game (z): 25.0
+#     payoff_matrix = np.array([[10,40], [30,20]])
+#     payoff_model = PayoffModel(matrix=payoff_matrix)
+#     hider_probs, game_value = solve_hider_maximin(payoff_model)
+#     print("Hider's Optimal Strategy (Probabilities):", hider_probs)
+#     print("Value of the Game (z):", game_value)
+# if __name__ == "__main__":
+#     main()
