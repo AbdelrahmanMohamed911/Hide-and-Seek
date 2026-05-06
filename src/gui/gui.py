@@ -8,9 +8,9 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue") 
 
 type_map = {
-    "neutral": "Neutral",
-    "easy_for_seeker": "Easy",
-    "hard_for_seeker": "Hard"
+    "neutral":         "⚠️(Neutral)",   # moderate — warning
+    "easy_for_seeker": "💀(Easy)",   # dangerous for hider — skull
+    "hard_for_seeker": "🛡️(Hard)",  # safe for hider — shield
 }
 
 class PayoffGui(ctk.CTk):
@@ -29,11 +29,15 @@ class PayoffGui(ctk.CTk):
         self.configure(fg_color="#111111")
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(5, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        self._scroll = ctk.CTkScrollableFrame(self, fg_color="#111111")
+        self._scroll.grid(row=0, column=0, sticky="nsew")
+        self._scroll.grid_columnconfigure(0, weight=1)
+        self._scroll.grid_rowconfigure(5, weight=1)
 
         # Header
         self.header_label = ctk.CTkLabel(
-            self, 
+            self._scroll, 
             text="MISSION PARAMETERS", 
             font=ctk.CTkFont(family="Courier", size=26, weight="bold"),
             text_color="#2ecc71"  
@@ -41,7 +45,7 @@ class PayoffGui(ctk.CTk):
         self.header_label.grid(row=0, column=0, padx=20, pady=(28, 8))
 
         # Input Frame
-        self.input_frame = ctk.CTkFrame(self, fg_color="#1a1a1a", border_width=1, border_color="#555555")
+        self.input_frame = ctk.CTkFrame(self._scroll, fg_color="#1a1a1a", border_width=1, border_color="#555555")
         self.input_frame.grid(row=1, column=0, padx=30, pady=8, sticky="ew")
         self.input_frame.grid_columnconfigure((0, 1), weight=1)
 
@@ -79,16 +83,16 @@ class PayoffGui(ctk.CTk):
         )
         self.btn_generate.grid(row=3, column=0, columnspan=2, sticky="ew", padx=5, pady=(0, 5))
 
-        self.console_label = ctk.CTkLabel(self, text="SYSTEM DATA OUTPUT:", font=("Courier", 12), text_color="#95a5a6")
+        self.console_label = ctk.CTkLabel(self._scroll, text="SYSTEM DATA OUTPUT:", font=("Courier", 12), text_color="#95a5a6")
         self.console_label.grid(row=4, column=0, padx=30, sticky="w")
 
         # Game Frame (initially hidden)
-        self.game_frame = ctk.CTkFrame(self, fg_color="#1a1a1a", border_width=1, border_color="#555555")
+        self.game_frame = ctk.CTkFrame(self._scroll, fg_color="#1a1a1a", border_width=1, border_color="#555555")
         self.game_frame.grid(row=1, column=0, padx=30, pady=8, sticky="ew")
         self.game_frame.grid_remove()
 
         # SCORE FRAME (hidden until GAME stage) 
-        self.score_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.score_frame = ctk.CTkFrame(self._scroll, fg_color="transparent")
         self.score_frame.grid(row=2, column=0, padx=30, pady=(0, 6), sticky="ew")
         self.score_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
         self.score_frame.grid_remove()
@@ -109,22 +113,47 @@ class PayoffGui(ctk.CTk):
 
         # CONSOLE LABEL
         self.console_label = ctk.CTkLabel(
-            self, text="SYSTEM DATA OUTPUT:",
+            self._scroll, text="SYSTEM DATA OUTPUT:",
             font=("Courier", 12), text_color="#95a5a6"
         )
         self.console_label.grid(row=4, column=0, padx=30, sticky="w")
 
         # OUTPUT TEXTBOX
         self.output_text = ctk.CTkTextbox(
-            self, 
-            fg_color="#000000", 
-            text_color="#2ecc71", 
+            self._scroll,
+            fg_color="#000000",
+            text_color="#2ecc71",
             font=("Consolas", 12),
             border_width=1,
-            border_color="#555555"
+            border_color="#555555",
+            wrap="none",          
         )
         self.output_text.grid(row=5, column=0, padx=30, pady=(0, 28), sticky="nsew")
 
+
+    def _format_matrix(self, matrix):
+        import numpy as np
+        arr = np.array(matrix)
+        rows, cols = arr.shape
+        col_w = max(len(f"{v:.3f}") for v in arr.flat)
+        col_w = max(col_w, 5)
+        header = "      " + "  ".join(f"S{j+1}".ljust(col_w) for j in range(cols))
+        sep    = "      " + "  ".join("-" * col_w for _ in range(cols))
+        lines  = [header, sep]
+        for i, row in enumerate(arr):
+            cells = "  ".join(f"{v:{col_w}.3f}" for v in row)
+            lines.append(f"  H{i+1} | {cells}")
+        return "\n".join(lines)
+
+    def _format_probs(self, probs):
+        import numpy as np
+        arr = np.array(probs).flatten()
+        entries = [f"P{i+1}: {v:.4f}" for i, v in enumerate(arr)]
+        chunk = 4
+        lines = []
+        for start in range(0, len(entries), chunk):
+            lines.append("  ".join(entries[start:start+chunk]))
+        return "\n".join(lines)
 
     def run_logic(self):
         try:
@@ -140,19 +169,18 @@ class PayoffGui(ctk.CTk):
             self.world_m  = generate_random_places(self.input_m)
             self.payoff_m = create_payoff_matrix(self.world_m)
 
-            self.output_text.delete("1.0", "end")
-            self.output_text.insert("end", f"> WORLD GENERATED: {self.world_m.places_hardness}\n")
-            self.output_text.insert("end", "> CALIBRATING PAYOFFS...\n")
-            self.output_text.insert("end", "> MATRIX READY:\n\n")
-            self.output_text.insert("end", str(self.payoff_m.matrix))
-
             self.computer_probabilities_seeker, _ = solve(self.payoff_m, "hider")
             self.computer_probabilities_hider, _  = solve(self.payoff_m, "seeker")
 
-            self.output_text.insert("end", "\n\n> OPTIMAL COMPUTER STRATEGY CALCULATED(Human Role: HIDER)\n\n")
-            self.output_text.insert("end", str(self.computer_probabilities_seeker.tolist()))
-            self.output_text.insert("end", "\n\n> OPTIMAL COMPUTER STRATEGY CALCULATED(Human Role: SEEKER)\n\n")
-            self.output_text.insert("end", str(self.computer_probabilities_hider.tolist()))
+            self.output_text.delete("1.0", "end")
+            self.output_text.insert("end", f"> WORLD GENERATED:\n  {self.world_m.places_hardness}\n\n")
+            self.output_text.insert("end", "> CALIBRATING PAYOFFS...\n")
+            self.output_text.insert("end", "> PAYOFF MATRIX  (rows = Hider place, cols = Seeker place):\n\n")
+            self.output_text.insert("end", self._format_matrix(self.payoff_m.matrix))
+            self.output_text.insert("end", "\n\n> COMPUTER STRATEGY — Human plays HIDER  (comp is seeker):\n\n")
+            self.output_text.insert("end", self._format_probs(self.computer_probabilities_seeker))
+            self.output_text.insert("end", "\n\n> COMPUTER STRATEGY — Human plays SEEKER  (comp is hider):\n\n")
+            self.output_text.insert("end", self._format_probs(self.computer_probabilities_hider))
 
             self.game_engine = GameEngine(self.payoff_m)
             self.set_stage("GAME")
@@ -193,74 +221,93 @@ class PayoffGui(ctk.CTk):
 
         N = len(self.world_m.places_hardness)
 
-        # Place label
-        ctk.CTkLabel(
-            self.game_frame, text="SELECT YOUR PLACE:",
-            font=("Courier", 11), text_color="#555555"
-        ).grid(row=0, column=0, columnspan=N, padx=10, pady=(12, 4), sticky="w")
+        self.game_frame.grid_columnconfigure(0, weight=1)
 
-        # Place buttons
+        top_bar = ctk.CTkFrame(self.game_frame, fg_color="transparent")
+        top_bar.grid(row=0, column=0, padx=10, pady=(12, 2), sticky="ew")
+        top_bar.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            top_bar, text="SELECT YOUR PLACE:",
+            font=("Courier", 11), text_color="#555555"
+        ).grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(
+            top_bar,
+            text="🛡️ Safe  ⚠️ Neutral  💀 Danger",
+            font=("Courier", 10), text_color="#666666"
+        ).grid(row=0, column=1, sticky="e")
+
+        BTN_W = 80  
+
         if not self.input_m.is_1D:
-            # 2D: columns based on grid width
-            for c in range(self.input_m.n):
-                self.game_frame.grid_columnconfigure(c, weight=1)
             for i in range(self.input_m.n):
+                row_scroll = ctk.CTkScrollableFrame(
+                    self.game_frame, orientation="horizontal",
+                    fg_color="transparent", height=74
+                )
+                row_scroll.grid(row=i + 1, column=0, padx=6, pady=(0, 4), sticky="ew")
                 for j in range(self.input_m.n):
                     place_num  = get_1D_index(self.input_m, i, j)
                     place_type = self.world_m.places_hardness[place_num]
                     btn = ctk.CTkButton(
-                        self.game_frame,
+                        row_scroll,
                         text=f"P{place_num+1}\n{type_map.get(place_type, place_type)}",
                         command=lambda p=place_num: self.on_select_place(p),
-                        font=("Courier", 12, "bold"),
+                        font=("Courier", 14, "bold"),
                         fg_color="#0a0a0a",
                         border_width=2,
                         border_color="#2ecc71",
                         text_color="#2ecc71",
                         hover_color="#1a6b3a",
+                        width=BTN_W,
                         height=58,
                         corner_radius=6
                     )
-                    # row+1 to leave row=0 for the label
-                    btn.grid(row=i + 1, column=j, padx=5, pady=(0, 8), sticky="ew")
+                    btn.grid(row=0, column=j, padx=5, pady=4)
                     self.place_buttons[place_num] = btn
             place_rows = self.input_m.n
         else:
-            # 1D: single row of buttons
-            for c in range(N):
-                self.game_frame.grid_columnconfigure(c, weight=1)
+            h_scroll = ctk.CTkScrollableFrame(
+                self.game_frame, orientation="horizontal",
+                fg_color="transparent", height=74
+            )
+            h_scroll.grid(row=1, column=0, padx=6, pady=(0, 4), sticky="ew")
             for i, place_type in enumerate(self.world_m.places_hardness):
                 btn = ctk.CTkButton(
-                    self.game_frame,
+                    h_scroll,
                     text=f"P{i+1}\n{type_map.get(place_type, place_type)}",
                     command=lambda i=i: self.on_select_place(i),
-                    font=("Courier", 12, "bold"),
+                    font=("Courier", 14, "bold"),
                     fg_color="#0a0a0a",
                     border_width=2,
                     border_color="#2ecc71",
                     text_color="#2ecc71",
                     hover_color="#1a6b3a",
+                    width=BTN_W,
                     height=58,
                     corner_radius=6
                 )
-                btn.grid(row=1, column=i, padx=5, pady=(0, 8), sticky="ew")
+                btn.grid(row=0, column=i, padx=5, pady=4)
                 self.place_buttons[i] = btn
             place_rows = 1
 
         # base row — everything below place buttons uses this offset
         base = place_rows + 1
 
-        col_mid = N // 2
+        col_mid = 1  
+        self.game_frame.grid_columnconfigure(0, weight=1)
 
         # Role label
         ctk.CTkLabel(
             self.game_frame, text="SELECT YOUR ROLE:",
             font=("Courier", 11), text_color="#555555"
-        ).grid(row=base, column=0, columnspan=N, padx=10, pady=(4, 4), sticky="w")
+        ).grid(row=base, column=0, padx=10, pady=(4, 4), sticky="w")
 
-        # Role buttons — stored as refs so we can recolor without scanning widgets
+        role_row = ctk.CTkFrame(self.game_frame, fg_color="transparent")
+        role_row.grid(row=base + 1, column=0, padx=5, pady=(0, 8), sticky="ew")
+        role_row.grid_columnconfigure((0, 1), weight=1)
+
         hider_btn = ctk.CTkButton(
-            self.game_frame,
+            role_row,
             text="HIDER",
             command=lambda: self.on_select_role("HIDER"),
             font=("Courier", 13, "bold"),
@@ -272,10 +319,10 @@ class PayoffGui(ctk.CTk):
             height=40,
             corner_radius=6
         )
-        hider_btn.grid(row=base + 1, column=0, columnspan=col_mid, padx=5, pady=(0, 8), sticky="ew")
+        hider_btn.grid(row=0, column=0, padx=(0, 4), sticky="ew")
 
         seeker_btn = ctk.CTkButton(
-            self.game_frame,
+            role_row,
             text="SEEKER",
             command=lambda: self.on_select_role("SEEKER"),
             font=("Courier", 13, "bold"),
@@ -287,7 +334,7 @@ class PayoffGui(ctk.CTk):
             height=40,
             corner_radius=6
         )
-        seeker_btn.grid(row=base + 1, column=col_mid, columnspan=N - col_mid, padx=5, pady=(0, 8), sticky="ew")
+        seeker_btn.grid(row=0, column=1, padx=(4, 0), sticky="ew")
 
         self.role_buttons = {"HIDER": hider_btn, "SEEKER": seeker_btn}
 
@@ -303,10 +350,13 @@ class PayoffGui(ctk.CTk):
             text_color="#ffffff",
             height=45,
             corner_radius=6
-        ).grid(row=base + 2, column=0, columnspan=N, padx=5, pady=(4, 4), sticky="ew")
+        ).grid(row=base + 2, column=0, padx=5, pady=(4, 4), sticky="ew")
 
+        sim_reset_row = ctk.CTkFrame(self.game_frame, fg_color="transparent")
+        sim_reset_row.grid(row=base + 3, column=0, padx=5, pady=(0, 8), sticky="ew")
+        sim_reset_row.grid_columnconfigure((0, 1), weight=1)
         ctk.CTkButton(
-            self.game_frame, text="⚡  SIMULATE",
+            sim_reset_row, text="⚡  SIMULATE",
             command=self.simulate,
             font=("Courier", 11, "bold"),
             fg_color="#0d0d0d",
@@ -316,10 +366,9 @@ class PayoffGui(ctk.CTk):
             text_color="#ffffff",
             height=34,
             corner_radius=6
-        ).grid(row=base + 3, column=0, columnspan=col_mid, padx=5, pady=(0, 8), sticky="ew")
-
+        ).grid(row=0, column=0, padx=(0, 4), sticky="ew")
         ctk.CTkButton(
-            self.game_frame, text="↺  RESET",
+            sim_reset_row, text="↺  RESET",
             command=lambda: self.set_stage("INPUT"),
             font=("Courier", 11, "bold"),
             fg_color="#0d0d0d",
@@ -329,7 +378,7 @@ class PayoffGui(ctk.CTk):
             text_color="#ffffff",
             height=34,
             corner_radius=6
-        ).grid(row=base + 3, column=col_mid, columnspan=N - col_mid, padx=5, pady=(0, 8), sticky="ew")
+        ).grid(row=0, column=1, padx=(4, 0), sticky="ew")
 
     # SELECTION HANDLERS 
 
@@ -353,6 +402,43 @@ class PayoffGui(ctk.CTk):
 
     # GAME ACTIONS
 
+    def highlight_round(self, hider_pos, seeker_pos, human_role):
+        hider_label  = "HIDER\n(YOU)" if human_role == "hider" else "HIDER\n(COMP)"
+        seeker_label = "SEEKER\n(YOU)" if human_role == "seeker" else "SEEKER\n(COMP)"
+
+        for place_num, btn in self.place_buttons.items():
+            place_type = self.world_m.places_hardness[place_num]
+            base_text  = f"P{place_num+1}\n{type_map.get(place_type, place_type)}"
+
+            if place_num == hider_pos and place_num == seeker_pos:
+                btn.configure(
+                    border_color="#e74c3c",
+                    fg_color="#3d0000",
+                    text_color="#ffffff",
+                    text=f"{base_text}\n{hider_label} & {seeker_label}"
+                )
+            elif place_num == hider_pos:
+                btn.configure(
+                    border_color="#3498db",
+                    fg_color="#0a2a4a",
+                    text_color="#3498db",
+                    text=f"{base_text}\n{hider_label}"
+                )
+            elif place_num == seeker_pos:
+                btn.configure(
+                    border_color="#e67e22",
+                    fg_color="#3d1a00",
+                    text_color="#e67e22",
+                    text=f"{base_text}\n{seeker_label}"
+                )
+            else:
+                btn.configure(
+                    border_color="#2ecc71",
+                    fg_color="#0a0a0a",
+                    text_color="#2ecc71",
+                    text=base_text
+                )
+
     def run_game(self):
         if self.selected_place is None or self.selected_role is None:
             messagebox.showwarning("INCOMPLETE SELECTION", "Please select both a place and a role before playing.")
@@ -366,6 +452,27 @@ class PayoffGui(ctk.CTk):
         print(f"Computer chose position: {computer_position}")
         print(f"Human chose position: {self.selected_place}")
         self.game_engine.play_round(self.selected_place, computer_position)
+
+        if self.selected_role == "hider":
+            hider_pos  = self.selected_place
+            seeker_pos = computer_position
+        else:
+            hider_pos  = computer_position
+            seeker_pos = self.selected_place
+
+        self.highlight_round(hider_pos, seeker_pos, self.selected_role)
+
+        if hider_pos == seeker_pos:
+            if self.selected_role == "hider":
+                messagebox.showinfo(
+                    "💀 CAUGHT!",
+                    "The computer tracked you down!\nYou've been found , better pick a harder spot next time."
+                )
+            else:
+                messagebox.showinfo(
+                    "🎯 GOT THEM!",
+                    "You found the hider!\nNice work , your instincts are sharp."
+                )
 
         self.update_scores(
             your_score=self.game_engine.human_total_score,
