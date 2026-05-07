@@ -23,6 +23,7 @@ class PayoffGui(ctk.CTk):
         self.place_buttons  = {}
         self.role_buttons   = {}
         self.game_engine    = None
+        self._sim_running = False
 
         self.title("HIDE & SEEK: STRATEGY ENGINE")
         self.geometry("620x700")
@@ -190,6 +191,7 @@ class PayoffGui(ctk.CTk):
 
     # STAGE SWITCHING 
     def set_stage(self, new_stage):
+        self._sim_running = False
         self.stage = new_stage
         self.input_frame.grid_remove()
         self.game_frame.grid_remove()
@@ -351,9 +353,49 @@ class PayoffGui(ctk.CTk):
             height=45,
             corner_radius=6
         ).grid(row=base + 2, column=0, padx=5, pady=(4, 4), sticky="ew")
+        sim_options_row = ctk.CTkFrame(self.game_frame, fg_color="transparent")
+        sim_options_row.grid(row=base + 3, column=0, padx=5, pady=(0, 4), sticky="ew")
+        sim_options_row.grid_columnconfigure((0, 1), weight=1)
 
+        ctk.CTkLabel(
+            sim_options_row, text="SIM ROLE:",
+            font=("Courier", 10), text_color="#555555"
+        ).grid(row=0, column=0, sticky="w", padx=(4, 0))
+        ctk.CTkLabel(
+            sim_options_row, text="HUMAN STRATEGY:",
+            font=("Courier", 10), text_color="#555555"
+        ).grid(row=0, column=1, sticky="w", padx=(4, 0))
+
+        self.sim_role_var = ctk.StringVar(value="Random each round")
+        self.sim_role_menu = ctk.CTkOptionMenu(
+            sim_options_row,
+            values=["Random each round", "Fixed: Hider", "Fixed: Seeker"],
+            variable=self.sim_role_var,
+            font=("Courier", 11),
+            fg_color="#0d0d0d",
+            button_color="#1a1a1a",
+            button_hover_color="#333333",
+            dropdown_fg_color="#0d0d0d",
+            text_color="#ffffff",
+        )
+        self.sim_role_menu.grid(row=1, column=0, padx=(4, 4), sticky="ew")
+
+        self.sim_strategy_var = ctk.StringVar(value="Random")
+        self.sim_strategy_menu = ctk.CTkOptionMenu(
+            sim_options_row,
+            values=["Random", "Optimal (mixed strategy)"],
+            variable=self.sim_strategy_var,
+            font=("Courier", 11),
+            fg_color="#0d0d0d",
+            button_color="#1a1a1a",
+            button_hover_color="#333333",
+            dropdown_fg_color="#0d0d0d",
+            text_color="#ffffff",
+        )
+        self.sim_strategy_menu.grid(row=1, column=1, padx=(4, 4), sticky="ew")
+        
         sim_reset_row = ctk.CTkFrame(self.game_frame, fg_color="transparent")
-        sim_reset_row.grid(row=base + 3, column=0, padx=5, pady=(0, 8), sticky="ew")
+        sim_reset_row.grid(row=base + 4, column=0, padx=5, pady=(0, 8), sticky="ew")
         sim_reset_row.grid_columnconfigure((0, 1), weight=1)
         ctk.CTkButton(
             sim_reset_row, text="⚡  SIMULATE",
@@ -481,16 +523,80 @@ class PayoffGui(ctk.CTk):
             lost=self.game_engine.computer_rounds_won
         )
 
-    def simulate(self):
-        self.game_engine.reset_scoreboard()
-        self.game_engine.play_simulation()
-        self.update_scores(
-            your_score=self.game_engine.human_total_score,
-            computer_score=self.game_engine.computer_total_score,
-            won=self.game_engine.human_rounds_won,
-            lost=self.game_engine.computer_rounds_won
-        )
+    # def simulate(self):
+    #     self.game_engine.reset_scoreboard()
+    #     self.update_scores(0, 0, 0, 0)
 
+    #     # self.game_engine.play_simulation()
+    #     # self.update_scores(
+    #     #     your_score=self.game_engine.human_total_score,
+    #     #     computer_score=self.game_engine.computer_total_score,
+    #     #     won=self.game_engine.human_rounds_won,
+    #     #     lost=self.game_engine.computer_rounds_won
+    #     # )
+                    
+    def simulate(self):
+        import threading
+        import time
+
+        self.game_engine.reset_scoreboard()
+        self.update_scores(0, 0, 0, 0)
+        self._sim_running = True
+        role_choice = self.sim_role_var.get()
+        strategy_choice = self.sim_strategy_var.get()
+        
+        
+
+        def run_sim():
+            n = len(self.payoff_m.matrix)
+            for _ in range(100):
+                if not self._sim_running:
+                    break
+                import random
+                from src.game.services import random_move, computer_move
+                if role_choice == "Fixed: Hider":
+                    role = "hider"
+                elif role_choice == "Fixed: Seeker":
+                    role = "seeker"
+                else:
+                    role = random.choice(["hider","seeker"])
+                    
+                # role = random.choice(['hider', 'seeker'])
+                self.game_engine.human_role = role
+
+                if role == "hider":
+                    self.game_engine.computer_probabilities = self.computer_probabilities_seeker
+                    computer_pos = computer_move(self.computer_probabilities_seeker)
+                else:
+                    self.game_engine.computer_probabilities = self.computer_probabilities_hider
+                    computer_pos = computer_move(self.computer_probabilities_hider)
+
+                # human_pos = random_move(n)
+                if strategy_choice == "Optimal (mixed strategy)":
+                    if role == "hider":
+                        human_pos = computer_move(self.computer_probabilities_hider)
+                    else:
+                        human_pos = computer_move(self.computer_probabilities_seeker)
+                else:
+                    human_pos = random_move(n)
+                self.game_engine.play_round(human_pos, computer_pos)
+
+                hider_pos  = human_pos  if role == "hider" else computer_pos
+                seeker_pos = computer_pos if role == "hider" else human_pos
+
+                self.after(0, lambda hp=hider_pos, sp=seeker_pos, r=role: (
+                    self.highlight_round(hp, sp, r),
+                    self.update_scores(
+                        self.game_engine.human_total_score,
+                        self.game_engine.computer_total_score,
+                        self.game_engine.human_rounds_won,
+                        self.game_engine.computer_rounds_won,
+                    )
+                ))
+
+                time.sleep(0.3)
+
+        threading.Thread(target=run_sim, daemon=True).start()
     def update_scores(self, your_score, computer_score, won, lost):
         self._score_vals["your_score"].configure(text=str(your_score))
         self._score_vals["computer_score"].configure(text=str(computer_score))

@@ -2,7 +2,8 @@ import random
 from .models import InputModel, WorldModel, PayoffModel
 from .services import computer_move, random_move
 from src.solver.computer_solver import solve
-
+import random
+import time
 class GameEngine:
     def __init__(self, payoff_model, human_role=None, computer_probabilities=None):
         self.payoff_model = payoff_model
@@ -82,6 +83,8 @@ class GameEngine:
             print(f"Computer chose position: {computer_position}")
             print(f"Human chose position: {human_position}")
             self.play_round(human_position, computer_position)
+            delay=0.2
+            time.sleep(delay)
 
     def reset_scoreboard(self):
         self.human_rounds_won = 0
